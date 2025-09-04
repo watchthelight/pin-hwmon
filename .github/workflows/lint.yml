@@ -1,0 +1,20 @@
+﻿name: lint
+on: [push, pull_request]
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install linters
+        run: |
+          pacman -Sy --noconfirm archlinux-keyring
+          pacman -Syu --noconfirm
+          pacman -S --needed --noconfirm shellcheck shfmt || pacman -S --needed --noconfirm shellcheck || true
+      - name: Run shellcheck
+        run: |
+          shellcheck -x pin-hwmon pin-hwmonctl cpu-temp-waybar gpu-temp-waybar temps-waybar pin-hwmon-metrics tests/mock-sysfs.sh
+      - name: Run shfmt (if available)
+        run: |
+          command -v shfmt && shfmt -d . || true

@@ -1,0 +1,10 @@
+﻿[Unit]
+Description=Run pin-hwmon metrics every 30s
+
+[Timer]
+OnUnitActiveSec=30s
+AccuracySec=5s
+Unit=pin-hwmon-metrics.service
+
+[Install]
+WantedBy=timers.target

@@ -1,32 +1,15 @@
-#!/usr/bin/env bash
+﻿#!/usr/bin/env bash
 set -euo pipefail
-IFS=$'\n\t'
 
-TEMP_FILE="/etc/hwmon/cpu_tctl"
-
-if [[ ! -r "$TEMP_FILE" ]]; then
-  echo '{"text": "N/A", "tooltip": "CPU temperature sensor not available. Run pin-hwmon service.", "class": "critical"}'
-  exit 0
+TEMP_PATH="/etc/hwmon/cpu_tctl"
+if [ ! -r "$TEMP_PATH" ]; then
+  echo '{"text":"N/A","tooltip":"cpu_tctl missing","class":"critical"}'
+  exit 1
 fi
-
-# Read temp in millidegrees
-temp_raw=$(cat "$TEMP_FILE")
-temp_c=$(awk "BEGIN {printf \"%.1f\", $temp_raw / 1000}")
-
-# Determine class
-if (( $(echo "$temp_c < 85" | bc -l) )); then
-  class="ok"
-elif (( $(echo "$temp_c < 95" | bc -l) )); then
-  class="hot"
-else
-  class="critical"
-fi
-
-# Text: icon + temp
-text=" ${temp_c%.*}°"
-
-# Tooltip
-tooltip="CPU Tctl: ${temp_c}°C"
-
-# Output JSON
-echo "{\"text\": \"$text\", \"tooltip\": \"$tooltip\", \"class\": \"$class\"}"
+raw=$(tr -d '\n' <"$TEMP_PATH" || echo 0)
+# Convert millideg to degC with 1 decimal
+c=$(awk -v v="$raw" 'BEGIN { printf "%.1f", v/1000 }')
+cls="ok"
+val=$(awk -v c="$c" 'BEGIN { print (c+0) }')
+if awk -v v="$val" 'BEGIN { exit !(v >= 95) }'; then cls="critical"; elif awk -v v="$val" 'BEGIN { exit !(v >= 85) }'; then cls="hot"; fi
+printf '{"text":"%s°C","tooltip":"CPU %s°C","class":"%s"}\n' "$c" "$c" "$cls"

@@ -1,0 +1,1 @@
+﻿SUBSYSTEM=="hwmon", ACTION=="add|change", TAG+="systemd", ENV{SYSTEMD_WANTS}="pin-hwmon.service"

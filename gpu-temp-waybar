@@ -1,0 +1,8 @@
+﻿#!/usr/bin/env bash
+set -euo pipefail
+TEMP_PATH="/etc/hwmon/gpu_temp"; if [ "${HWMON_ROOT:-/sys}" != "/sys" ]; then TEMP_PATH="${HWMON_ROOT}/etc/hwmon/gpu_temp"; fi
+if [ ! -r "$TEMP_PATH" ]; then echo '{"text":"N/A","tooltip":"gpu_temp missing","class":"critical"}'; exit 1; fi
+raw=$(tr -d '\n' <"$TEMP_PATH" || echo 0); c=$(awk -v v="$raw" 'BEGIN { printf "%.1f", v/1000 }')
+cls="ok"; val=$(awk -v c="$c" 'BEGIN{ print (c+0) }')
+if awk -v v="$val" 'BEGIN { exit !(v >= 95) }'; then cls="critical"; elif awk -v v="$val" 'BEGIN { exit !(v >= 85) }'; then cls="hot"; fi
+printf '{"text":"%s°C","tooltip":"GPU %s°C","class":"%s"}\n' "$c" "$c" "$cls"

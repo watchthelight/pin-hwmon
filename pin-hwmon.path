@@ -1,0 +1,9 @@
+﻿[Unit]
+Description=Auto-repin pin-hwmon on hwmon changes
+
+[Path]
+PathExistsGlob=/sys/class/hwmon/hwmon*
+Unit=pin-hwmon.service
+
+[Install]
+WantedBy=multi-user.target

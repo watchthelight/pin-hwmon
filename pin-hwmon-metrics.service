@@ -1,0 +1,6 @@
+﻿[Unit]
+Description=pin-hwmon metrics exporter
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/pin-hwmon-metrics

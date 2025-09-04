@@ -1,0 +1,11 @@
+﻿[Trigger]
+Type = Package
+Operation = Install
+Operation = Upgrade
+Target = *linux*
+Target = *nvidia*
+
+[Action]
+Description = Re-pin hwmon symlinks after kernel/driver change
+When = PostTransaction
+Exec = /usr/bin/systemctl start pin-hwmon.service

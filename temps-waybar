@@ -1,0 +1,7 @@
+﻿#!/usr/bin/env bash
+set -euo pipefail
+cpu_p="/etc/hwmon/cpu_tctl"; gpu_p="/etc/hwmon/gpu_temp"; if [ "${HWMON_ROOT:-/sys}" != "/sys" ]; then cpu_p="${HWMON_ROOT}/etc/hwmon/cpu_tctl"; gpu_p="${HWMON_ROOT}/etc/hwmon/gpu_temp"; fi
+ct="N/A"; gt=""; if [ -r "$cpu_p" ]; then raw=$(tr -d '\n' <"$cpu_p" || echo 0); ct=$(awk -v v="$raw" 'BEGIN { printf "%.0f", v/1000 }'); fi; if [ -r "$gpu_p" ]; then raw=$(tr -d '\n' <"$gpu_p" || echo 0); gt=$(awk -v v="$raw" 'BEGIN { printf "%.0f", v/1000 }'); fi
+text=" ${ct}°"; [ -n "$gt" ] && text="${text} ${gt}°"
+cls="ok"; if [ -n "$gt" ]; then if awk -v v="$gt" 'BEGIN{ exit !(v >= 95) }' || awk -v v="$ct" 'BEGIN{ exit !(v >= 95) }'; then cls="critical"; elif awk -v v="$gt" 'BEGIN{ exit !(v >= 85) }' || awk -v v="$ct" 'BEGIN{ exit !(v >= 85) }'; then cls="hot"; fi; else if awk -v v="$ct" 'BEGIN{ exit !(v >= 95) }'; then cls="critical"; elif awk -v v="$ct" 'BEGIN{ exit !(v >= 85) }'; then cls="hot"; fi; fi
+printf '{"text":"%s","tooltip":"CPU %s%s","class":"%s"}\n' "$text" "$ct" "${gt:+ GPU $gt}" "$cls"

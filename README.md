@@ -1,44 +1,30 @@
-# pin-hwmon
+﻿# pin-hwmon
 
-A small Arch Linux package that pins hwmon paths for stable CPU and GPU temperature access. This solves the issue where `/sys/class/hwmon/hwmonX` paths change across reboots, making it unreliable for scripts and monitoring tools.
+Pins stable `/etc/hwmon` symlinks for CPU and GPU temperature sensors so paths don’t jump around between reboots (e.g., `/sys/class/hwmon/hwmonX`). Ships with a Waybar helper to display CPU temperature.
 
 ## What it does
+- Detects sensors under `${HWMON_ROOT:-/sys}/class/hwmon`.
+- CPU: matches `k10temp` or `zenpower`.
+- GPU: matches `amdgpu` (optional).
+- Selects temperature inputs by label priority:
+  - CPU: `Tctl`, `Tdie`, `Composite` → else first `temp*_input`.
+  - GPU: `Junction`/`junction`, `Edge`/`edge` → else first `temp*_input`.
+- Creates symlinks:
+  - `/etc/hwmon/cpu` → CPU device dir
+  - `/etc/hwmon/cpu_tctl` → chosen CPU temp input
+  - `/etc/hwmon/gpu` → GPU device dir (if present)
+  - `/etc/hwmon/gpu_temp` → chosen GPU temp input (if present)
+- Systemd oneshot service to apply on boot.
+- Waybar helper `/usr/bin/cpu-temp-waybar` emitting JSON.
 
-- Scans `/sys/class/hwmon` for CPU (k10temp/zenpower) and GPU (amdgpu) sensors.
-- Creates stable symlinks under `/etc/hwmon`:
-  - `/etc/hwmon/cpu` -> CPU hwmon directory
-  - `/etc/hwmon/cpu_tctl` -> CPU temperature input (prefers Tctl, Tdie, Composite labels)
-  - `/etc/hwmon/gpu` -> GPU hwmon directory (if present)
-  - `/etc/hwmon/gpu_temp` -> GPU temperature input (prefers Junction, Edge labels)
-- Provides a systemd oneshot service to run on boot.
-- Includes a Waybar helper script for displaying CPU temperature.
-
-## Installation
-
-### From local source
-
-```bash
-git clone https://github.com/user/pin-hwmon.git
-cd pin-hwmon
+## Install (Arch/EndeavourOS)
+```
 makepkg -si
 sudo systemctl enable --now pin-hwmon.service
 ```
 
-### Test the installation
-
-```bash
-# Check symlinks
-ls -l /etc/hwmon
-
-# Read CPU temperature
-cat /etc/hwmon/cpu_tctl
-awk '{printf "%.1f°C\n", $1/1000}' /etc/hwmon/cpu_tctl
-```
-
-## Waybar Integration
-
-Add this to your Waybar config:
-
+## Waybar
+Config snippet:
 ```json
 {
   "custom/cpu_temp": {
@@ -49,52 +35,42 @@ Add this to your Waybar config:
 }
 ```
 
-And style with CSS:
-
+Style:
 ```css
-#custom-cpu_temp.ok { color: #00ff00; }
-#custom-cpu_temp.hot { color: #ffff00; }
-#custom-cpu_temp.critical { color: #ff0000; }
+#custom-cpu_temp.ok { color: #44d62c; }
+#custom-cpu_temp.hot { color: #ffcc00; }
+#custom-cpu_temp.critical { color: #ff1744; }
 ```
 
 ## Troubleshooting
+- Ensure CPU sensor is present: `ls ${HWMON_ROOT:-/sys}/class/hwmon/*/name | xargs -I{} sh -c 'echo -n "{} -> "; cat {}'`
+- AMD GPU: check `amdgpu` driver in use: `lspci -k | grep -A2 VGA`
+- Mocking: set `HWMON_ROOT=/path/to/mock/sys` for testing without touching real `/sys`.
 
-### No CPU sensor found
-- Ensure the k10temp module is loaded: `sudo modprobe k10temp`
-- Check available hwmon: `ls /sys/class/hwmon/`
-
-### AMD GPU missing
-- Ensure amdgpu drivers are in use: `lspci -k | grep amdgpu`
-- Check if hwmon is exposed: `find /sys/class/hwmon -name name -exec cat {} \;`
-
-### Show current mapping
-```bash
-ls -l /etc/hwmon
-cat /etc/hwmon/cpu_tctl
-```
-
-## Acceptance Tests
-
-After installation and enabling the service:
-
-```bash
-# Symlink exists
-test -L /etc/hwmon/cpu_tctl
-
-# Has content
-[[ $(cat /etc/hwmon/cpu_tctl | wc -c) -gt 0 ]]
-
-# Waybar script works
-/usr/bin/cpu-temp-waybar
-# Should print valid JSON and exit 0
-```
-
-## Security/Notes
-
+## Security
+- Service runs as root to create symlinks under `/etc/hwmon`.
 - Scripts are installed read-only.
-- Service is oneshot and runs with root privileges to create symlinks.
-- No external dependencies beyond specified in PKGBUILD.
 
 ## License
-
 MIT
+## Config
+Edit `/etc/pin-hwmon.conf` (auto-copied on first run). Keys: CPU_PATTERNS, GPU_PATTERNS, NVME_PATTERNS, label preferences, LINK names, ENABLE_NVME, TEXTFILE_COLLECTOR.
+
+## Auto-repin
+Enable `pin-hwmon.path` and udev rule:
+
+sudo systemctl enable --now pin-hwmon.path
+
+## CLI
+pin-hwmonctl status|read|json|check --cpu-max=85 --gpu-max=90
+
+## Prometheus
+Set `TEXTFILE_COLLECTOR=/var/lib/node_exporter/textfile_collector` and enable:
+
+sudo systemctl enable --now pin-hwmon-metrics.timer
+
+## Waybar combined
+Use `/usr/bin/temps-waybar` to show both CPU/GPU.
+
+## Testing
+Set `HWMON_ROOT` to a mock sysfs. See `tests/mock-sysfs.sh`.

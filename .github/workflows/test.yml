@@ -1,0 +1,18 @@
+﻿name: test
+on: [push]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare
+        run: |
+          pacman -Sy --noconfirm archlinux-keyring
+          pacman -Syu --noconfirm
+          pacman -S --needed --noconfirm bash coreutils awk grep sed
+      - name: Run tests
+        run: |
+          chmod +x tests/mock-sysfs.sh pin-hwmon pin-hwmonctl cpu-temp-waybar gpu-temp-waybar temps-waybar pin-hwmon-metrics
+          tests/mock-sysfs.sh

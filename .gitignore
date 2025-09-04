@@ -1,11 +1,8 @@
-# Ignore build artifacts
-pkg/
+﻿pkg/
 src/
-*.tar.zst
-*.tar.gz
-*.zip
-
-# Ignore editor files
+*.pkg.tar.*
+*.tar.*
+.DS_Store
 .vscode/
 *.swp
 *.swo

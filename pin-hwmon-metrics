@@ -1,0 +1,16 @@
+﻿#!/usr/bin/env bash
+set -euo pipefail
+CONF_FILE="/etc/pin-hwmon.conf"; [ -r "$CONF_FILE" ] && . "$CONF_FILE"
+HWMON_ROOT="${HWMON_ROOT:-/sys}"; [ -z "${TEXTFILE_COLLECTOR:-}" ] && exit 0
+outdir="$TEXTFILE_COLLECTOR"; mkdir -p "$outdir"; outfile="$outdir/pin_hwmon.prom"
+metric() { printf 'pin_hwmon_temperature_celsius{sensor="%s"} %.1f\n' "$1" "$2"; }
+read_temp() { local p="$1"; [ -r "$p" ] || return 1; local r; r=$(tr -d '\n' <"$p" || echo 0); awk -v v="$r" 'BEGIN{ printf "%.1f", v/1000 }'; }
+etc_base="/etc/hwmon"; [ "$HWMON_ROOT" != "/sys" ] && etc_base="$HWMON_ROOT/etc/hwmon"
+cpu=$(read_temp "$etc_base/cpu_tctl" || echo)
+gpu=$(read_temp "$etc_base/gpu_temp" || echo)
+{
+  [ -n "$cpu" ] && metric cpu "$cpu"
+  [ -n "$gpu" ] && metric gpu "$gpu"
+  i=0; for d in "$HWMON_ROOT/class/hwmon"/hwmon*; do [ -r "$d/name" ] || continue; n=$(tr -d '\n' <"$d/name" || true); case "$n" in nvme*) inp=$(ls "$d"/temp*_input 2>/dev/null | head -n1); [ -n "$inp" ] && t=$(read_temp "$inp" || echo); [ -n "$t" ] && metric "nvme${i}" "$t"; i=$((i+1));; esac; done
+} >"$outfile.tmp"
+mv -f "$outfile.tmp" "$outfile"

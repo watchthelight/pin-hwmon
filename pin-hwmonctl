@@ -1,0 +1,10 @@
+﻿#!/usr/bin/env bash
+set -euo pipefail
+HWMON_ROOT="${HWMON_ROOT:-/sys}"; if [ "$HWMON_ROOT" != "/sys" ]; then ETC_HWMON="$HWMON_ROOT/etc/hwmon"; else ETC_HWMON="/etc/hwmon"; fi
+read_temp() { local path="$1"; [ -r "$path" ] || return 1; local raw; raw=$(tr -d '\n' <"$path" 2>/dev/null || echo 0); awk -v v="$raw" 'BEGIN { printf "%.1f", v/1000 }'; }
+resolved_path() { local p="$1"; if [ -L "$p" ]; then readlink -f -- "$p"; else printf '%s' "$p"; fi }
+status() { for link in cpu cpu_tctl gpu gpu_temp; do local p="$ETC_HWMON/$link"; if [ -L "$p" ]; then local t; t=$(readlink -f -- "$p"); if [ -e "$t" ]; then echo "$link -> $t (OK)"; else echo "$link -> $t (BROKEN)"; fi; else echo "$link (missing)"; fi; done }
+json() { local cpu_p="$ETC_HWMON/cpu_tctl" gpu_p="$ETC_HWMON/gpu_temp"; local cpu_t gpu_t; cpu_t=$(read_temp "$cpu_p" || echo "null"); gpu_t=$(read_temp "$gpu_p" || echo "null"); printf '{"cpu":%s,"gpu":%s,"paths":{"cpu":"%s","gpu":"%s"}}\n' "${cpu_t:-null}" "${gpu_t:-null}" "$(resolved_path "$cpu_p")" "$(resolved_path "$gpu_p")" }
+read_cmd() { local cpu_p="$ETC_HWMON/cpu_tctl" gpu_p="$ETC_HWMON/gpu_temp"; local cpu_t gpu_t; cpu_t=$(read_temp "$cpu_p" || echo "N/A"); gpu_t=$(read_temp "$gpu_p" || echo "N/A"); echo "CPU: ${cpu_t}°C  GPU: ${gpu_t}°C" }
+check() { local cpu_max=85 gpu_max=90; for a in "$@"; do case "$a" in --cpu-max=*) cpu_max="${a#*=}";; --gpu-max=*) gpu_max="${a#*=}";; esac; done; local cpu_t gpu_t; cpu_t=$(read_temp "$ETC_HWMON/cpu_tctl" || echo -1); gpu_t=$(read_temp "$ETC_HWMON/gpu_temp" || echo -1); local ok=0; awk -v t="$cpu_t" -v m="$cpu_max" 'BEGIN{ exit !(t=="-1" || t<m) }' || ok=2; awk -v t="$gpu_t" -v m="$gpu_max" 'BEGIN{ exit !(t=="-1" || t<m) }' || ok=2; [ $ok -eq 0 ] && echo "OK" || echo "HOT"; return $ok }
+case "${1:-}" in status) status ;; read) read_cmd ;; json) json ;; check) shift || true; check "$@" ;; *) echo "Usage: pin-hwmonctl {status|read|json|check [--cpu-max=N --gpu-max=N]}"; exit 2 ;; esac

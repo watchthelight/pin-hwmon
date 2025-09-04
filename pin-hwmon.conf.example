@@ -1,0 +1,13 @@
+﻿# pin-hwmon configuration
+CPU_PATTERNS="k10temp|zenpower|coretemp"
+GPU_PATTERNS="amdgpu|nvidia|nouveau"
+NVME_PATTERNS="nvme"
+CPU_LABEL_PREF="Tctl,Tdie,Composite"
+GPU_LABEL_PREF="Junction,junction,Edge,edge"
+LINK_CPU="cpu"
+LINK_CPU_TEMP="cpu_tctl"
+LINK_GPU="gpu"
+LINK_GPU_TEMP="gpu_temp"
+ENABLE_NVME=false
+# Prometheus textfile collector directory (empty to disable)
+TEXTFILE_COLLECTOR=""
