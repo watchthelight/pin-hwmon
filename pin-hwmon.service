@@ -1,0 +1,11 @@
+﻿[Unit]
+Description=Pin stable hwmon symlinks for CPU/GPU temps
+Wants=systemd-udev-settle.service
+After=systemd-udev-settle.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/pin-hwmon
+
+[Install]
+WantedBy=multi-user.target

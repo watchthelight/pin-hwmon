@@ -1,0 +1,141 @@
+﻿#!/usr/bin/env bash
+set -euo pipefail
+
+# Colors and logging
+if [ -t 1 ]; then
+  C_BLU="\033[1;34m"; C_GRN="\033[1;32m"; C_YEL="\033[1;33m"; C_RED="\033[1;31m"; C_RST="\033[0m"
+else
+  C_BLU=""; C_GRN=""; C_YEL=""; C_RED=""; C_RST=""
+fi
+log_info() { [ "${QUIET:-false}" = true ] || printf "%b[INFO]%b %s\n" "$C_BLU" "$C_RST" "$*"; }
+log_ok()   { [ "${QUIET:-false}" = true ] || printf "%b[OK]%b   %s\n" "$C_GRN" "$C_RST" "$*"; }
+log_warn() { printf "%b[WARN]%b %s\n" "$C_YEL" "$C_RST" "$*"; }
+log_fail() { printf "%b[FAIL]%b %s\n" "$C_RED" "$C_RST" "$*"; }
+
+show_egg=true
+QUIET=false
+DRY_RUN=false
+RELINK=true
+
+usage() {
+  cat <<EOF
+pin-hwmon: Pin stable /etc/hwmon symlinks
+Usage: pin-hwmon [--quiet] [--no-egg] [--dry-run] [--relink]
+
+Env:
+  HWMON_ROOT  Override /sys root for testing (default: /sys)
+EOF
+}
+
+for arg in "$@"; do
+  case "$arg" in
+    -h|--help) usage; exit 0;;
+    --quiet) QUIET=true;;
+    --no-egg) show_egg=false;;
+    --dry-run) DRY_RUN=true;;
+    --relink) RELINK=true;;
+    *) log_warn "Unknown arg: $arg"; usage; exit 2;;
+  esac
+  shift || true
+done
+
+if ${show_egg}; then
+  # Tiny 3-line therian/avali-ish egg
+  [ "${QUIET:-false}" = true ] || printf "\n  /\\\\  \\o/\n ( owo ) pin-hwmon\n  \\__/  ~\n\n"
+fi
+
+HWMON_ROOT="${HWMON_ROOT:-/sys}"
+HWMON_DIR="$HWMON_ROOT/class/hwmon"
+ETC_HWMON="/etc/hwmon"
+
+[ -d "$HWMON_DIR" ] || { log_fail "No such directory: $HWMON_DIR"; exit 1; }
+
+find_sensor_dir() {
+  local pattern="$1"
+  local d name
+  for d in "$HWMON_DIR"/hwmon*; do
+    [ -d "$d" ] || continue
+    if [ -r "$d/name" ]; then
+      name=$(tr -d '\n' <"$d/name") || true
+      case "$name" in
+        $pattern) printf "%s\n" "$d"; return 0;;
+      esac
+    fi
+  done
+  return 1
+}
+
+choose_temp_input() {
+  local dir="$1"; shift
+  # Preferred labels in order
+  local label pref labels input f v
+  labels=("$@")
+  for f in "$dir"/temp*_label; do
+    [ -f "$f" ] || continue
+    v=$(tr -d '\n' <"$f") || true
+    for pref in "${labels[@]}"; do
+      if [ "$v" = "$pref" ]; then
+        input=${f/_label/_input}
+        [ -f "$input" ] && { printf "%s\n" "$input"; return 0; }
+      fi
+    done
+    # case-insensitive fallback for GPU labels
+    for pref in "${labels[@]}"; do
+      if [ "${v,,}" = "${pref,,}" ]; then
+        input=${f/_label/_input}
+        [ -f "$input" ] && { printf "%s\n" "$input"; return 0; }
+      fi
+    done
+  done
+  # Fallback to first temp*_input
+  for f in "$dir"/temp*_input; do
+    [ -f "$f" ] || continue
+    printf "%s\n" "$f"; return 0
+  done
+  return 1
+}
+
+linkit() {
+  local target="$1" dest="$2"
+  if $DRY_RUN; then
+    log_info "DRY-RUN ln -snf $target $dest"
+    return 0
+  fi
+  if [ ! -d "$ETC_HWMON" ]; then
+    mkdir -p "$ETC_HWMON"
+  fi
+  ln -snf "$target" "$dest"
+}
+
+cpu_dir=$(find_sensor_dir 'k10temp*' || true)
+if [ -z "$cpu_dir" ]; then
+  cpu_dir=$(find_sensor_dir 'zenpower*' || true)
+fi
+
+[ -n "$cpu_dir" ] || { log_fail "CPU sensor (k10temp/zenpower) not found"; exit 3; }
+
+cpu_input=$(choose_temp_input "$cpu_dir" Tctl Tdie Composite || true)
+[ -n "$cpu_input" ] || { log_fail "CPU temperature input not found"; exit 4; }
+
+# GPU is optional
+gpu_dir=$(find_sensor_dir 'amdgpu' || true)
+if [ -n "$gpu_dir" ]; then
+  gpu_input=$(choose_temp_input "$gpu_dir" Junction junction Edge edge || true)
+fi
+
+log_info "CPU dir: $cpu_dir"
+log_info "CPU temp input: $cpu_input"
+[ -n "${gpu_dir:-}" ] && log_info "GPU dir: $gpu_dir"
+[ -n "${gpu_input:-}" ] && log_info "GPU temp input: $gpu_input"
+
+linkit "$cpu_dir" "$ETC_HWMON/cpu"
+linkit "$cpu_input" "$ETC_HWMON/cpu_tctl"
+
+if [ -n "${gpu_dir:-}" ]; then
+  linkit "$gpu_dir" "$ETC_HWMON/gpu"
+fi
+if [ -n "${gpu_input:-}" ]; then
+  linkit "$gpu_input" "$ETC_HWMON/gpu_temp"
+fi
+
+log_ok "Pinned symlinks under $ETC_HWMON"

@@ -1,0 +1,40 @@
+﻿name: build-and-release
+on:
+  push:
+    tags:
+      - '"'v*'"'
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Pacman bootstrap
+        run: |
+          pacman -Sy --noconfirm archlinux-keyring
+          pacman -Syu --noconfirm
+          pacman -S --needed --noconfirm base-devel git awk coreutils sed grep gawk file which zstd sudo
+      - name: Build package
+        run: |
+          useradd -m builder || true
+          chown -R builder:builder .
+          sudo -u builder bash -lc 'makepkg -sf --noconfirm'
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pkg
+          path: "*.pkg.tar.zst"
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: pkg
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: "*.pkg.tar.zst"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,0 +1,15 @@
+﻿#!/usr/bin/env bash
+set -euo pipefail
+
+TEMP_PATH="/etc/hwmon/cpu_tctl"
+if [ ! -r "$TEMP_PATH" ]; then
+  echo '{"text":"N/A","tooltip":"cpu_tctl missing","class":"critical"}'
+  exit 1
+fi
+raw=$(tr -d '\n' <"$TEMP_PATH" || echo 0)
+# Convert millideg to degC with 1 decimal
+c=$(awk -v v="$raw" 'BEGIN { printf "%.1f", v/1000 }')
+cls="ok"
+val=$(awk -v c="$c" 'BEGIN { print (c+0) }')
+if awk -v v="$val" 'BEGIN { exit !(v >= 95) }'; then cls="critical"; elif awk -v v="$val" 'BEGIN { exit !(v >= 85) }'; then cls="hot"; fi
+printf '{"text":"%s°C","tooltip":"CPU %s°C","class":"%s"}\n' "$c" "$c" "$cls"

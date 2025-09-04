@@ -1,0 +1,15 @@
+﻿post_install() {
+  cat <<'EOF'
+==> pin-hwmon installed
+Enable the service so symlinks are pinned on boot:
+
+  sudo systemctl enable --now pin-hwmon.service
+
+Quick test (after service has run):
+  awk '{ printf("%.1f°C\n", $1/1000) }' /etc/hwmon/cpu_tctl
+EOF
+}
+
+post_upgrade() {
+  post_install
+}

@@ -1,0 +1,10 @@
+﻿pkg/
+src/
+*.pkg.tar.*
+*.tar.*
+.DS_Store
+.vscode/
+*.swp
+*.swo
+*.bak
+*.tmp
