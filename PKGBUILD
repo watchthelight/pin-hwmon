@@ -1,10 +1,16 @@
 ﻿# Maintainer: watchthelight
 pkgname=pin-hwmon
-pkgver=1.1.0
+pkgver=1.2.0
 pkgrel=1
 arch=('any')
 depends=('bash' 'coreutils' 'awk' 'sed' 'grep' 'systemd')
-optdepends=('waybar: show temps with helper' 'lm_sensors: extra tools' 'prometheus-node-exporter: textfile collector')
+optdepends=(
+  'waybar: show temps with helper'
+  'lm_sensors: extra tools'
+  'prometheus-node-exporter: textfile collector'
+  'python: GUI'
+  'tk: GUI'
+)
 license=('MIT')
 install='pin-hwmon.install'
 source=(
@@ -27,8 +33,10 @@ source=(
   'man/pin-hwmon.1'
   'man/pin-hwmonctl.1'
   'pin-hwmon.conf.example'
+  'pin-hwmon-gui'
+  'pin-hwmon.desktop'
 )
-sha256sums=('SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP')
+sha256sums=('SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP')
 
 package() {
   install -Dm755 "${srcdir}/pin-hwmon" "${pkgdir}/usr/bin/pin-hwmon"
@@ -37,11 +45,13 @@ package() {
   install -Dm755 "${srcdir}/gpu-temp-waybar" "${pkgdir}/usr/bin/gpu-temp-waybar"
   install -Dm755 "${srcdir}/temps-waybar" "${pkgdir}/usr/bin/temps-waybar"
   install -Dm755 "${srcdir}/pin-hwmon-metrics" "${pkgdir}/usr/bin/pin-hwmon-metrics"
+  install -Dm755 "${srcdir}/pin-hwmon-gui" "${pkgdir}/usr/bin/pin-hwmon-gui"
 
   install -Dm644 "${srcdir}/pin-hwmon.service" "${pkgdir}/usr/lib/systemd/system/pin-hwmon.service"
   install -Dm644 "${srcdir}/pin-hwmon.path" "${pkgdir}/usr/lib/systemd/system/pin-hwmon.path"
   install -Dm644 "${srcdir}/pin-hwmon-metrics.service" "${pkgdir}/usr/lib/systemd/system/pin-hwmon-metrics.service"
   install -Dm644 "${srcdir}/pin-hwmon-metrics.timer" "${pkgdir}/usr/lib/systemd/system/pin-hwmon-metrics.timer"
+  install -Dm644 "${srcdir}/pin-hwmon.desktop" "${pkgdir}/usr/share/applications/pin-hwmon.desktop"
 
   install -Dm644 "${srcdir}/99-pin-hwmon.rules" "${pkgdir}/usr/lib/udev/rules.d/99-pin-hwmon.rules"
   install -Dm644 "${srcdir}/pin-hwmon.tmpfiles" "${pkgdir}/usr/lib/tmpfiles.d/pin-hwmon.conf"
