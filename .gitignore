@@ -1,0 +1,13 @@
+# Ignore build artifacts
+pkg/
+src/
+*.tar.zst
+*.tar.gz
+*.zip
+
+# Ignore editor files
+.vscode/
+*.swp
+*.swo
+*.bak
+*.tmp

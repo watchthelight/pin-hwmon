@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+set -euo pipefail
+IFS=$'\n\t'
+
+TEMP_FILE="/etc/hwmon/cpu_tctl"
+
+if [[ ! -r "$TEMP_FILE" ]]; then
+  echo '{"text": "N/A", "tooltip": "CPU temperature sensor not available. Run pin-hwmon service.", "class": "critical"}'
+  exit 0
+fi
+
+# Read temp in millidegrees
+temp_raw=$(cat "$TEMP_FILE")
+temp_c=$(awk "BEGIN {printf \"%.1f\", $temp_raw / 1000}")
+
+# Determine class
+if (( $(echo "$temp_c < 85" | bc -l) )); then
+  class="ok"
+elif (( $(echo "$temp_c < 95" | bc -l) )); then
+  class="hot"
+else
+  class="critical"
+fi
+
+# Text: icon + temp
+text=" ${temp_c%.*}°"
+
+# Tooltip
+tooltip="CPU Tctl: ${temp_c}°C"
+
+# Output JSON
+echo "{\"text\": \"$text\", \"tooltip\": \"$tooltip\", \"class\": \"$class\"}"
